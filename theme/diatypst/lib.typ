@@ -296,19 +296,25 @@
   set enum(numbering: color_number)
 
   // Table
+  // Minimal: no outer frame or vertical lines. One rule under the header,
+  // full-width hairlines between body rows; columns separated by padding.
+  show table: set text(0.8em)
+  show table: set par(leading: 0.5em)
   show table: set table(
+    // Padding instead of a gutter so row lines run unbroken; the first and
+    // last columns stay flush with the text edges.
+    inset: (x, y) => (left: if x > 0 { 0.6em } else { 0pt }, right: 0.6em, y: 0.5em),
+    align: left + top,
     stroke: (x, y) => (
-      x: none,
-      bottom: 0.8pt + c.fg,
-      top: if y == 0 { 0.8pt + c.fg } else if y == 1 { 0.4pt + c.fg } else { 0pt },
-    )
+      top: if y == 1 { 0.6pt + c.muted } else if y > 1 { 0.3pt + c.rule },
+    ),
   )
 
   show table.cell.where(y: 0): set text(
     style: "normal", weight: "bold", fill: c.accent) // for first / header row
 
-  set table.hline(stroke: 0.4pt + c.fg)
-  set table.vline(stroke: 0.4pt + c.fg)
+  set table.hline(stroke: 0.8pt + c.rule)
+  set table.vline(stroke: 0.8pt + c.rule)
 
   // Figures
   show figure.caption: set text(0.8em, fill: c.muted)

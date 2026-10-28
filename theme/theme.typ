@@ -46,7 +46,7 @@
     colors: palette,
     logo: logos.inverted,
     theme: "normal",
-    count: "dot",
+    count: "dot-section",
     toc: true,
     toc-title: "Agenda",
     ..args,

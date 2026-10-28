@@ -41,4 +41,7 @@ List every change made to `lib.typ` here so upstream merges stay manageable.
 - `authors` entries may be plain names or `(name: ..., role: ...)`; the title
   slide shows one column per author with the role underneath.
 - Outline targets level-1 headings only; entries are `0N  Title` rows.
-- Tables, quotes, terms, code, refs and figure captions use palette colours.
+- Tables: minimal, 0.8em text. No frame or vertical lines; one rule under
+  the header, full-width hairlines between body rows, columns separated by cell
+  padding.
+- Quotes, terms, code, refs and figure captions use palette colours.
