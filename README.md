@@ -3,16 +3,36 @@
 Typst slide deck built on a vendored, customizable copy of
 [Diatypst](https://github.com/skriptum/Diatypst).
 
-## Build
+## Setup
 
-```sh
-make          # build/slides.pdf
-make watch    # rebuild on save
-```
+1. Install Typst (0.13 or newer):
 
-Requires Typst ≥ 0.13. Montserrat is bundled in `assets/fonts` and loaded
-with `--font-path assets/fonts` (the Makefile does this). For editor previews
-(e.g. Tinymist), add `assets/fonts` to the font paths setting.
+   ```sh
+   brew install typst                 # macOS
+   winget install --id Typst.Typst    # Windows
+   ```
+
+   Other platforms: see https://github.com/typst/typst#installation.
+
+2. Build the slides:
+
+   ```sh
+   make          # writes build/slides.pdf
+   make watch    # rebuilds on every save
+   ```
+
+   Without `make`:
+   `typst compile --root . --font-path assets/fonts slides.typ build/slides.pdf`
+
+### VS Code (live preview)
+
+1. Install the **Tinymist Typst** extension.
+2. Open `slides.typ` and click the preview icon in the top-right of the editor
+   (or run **Typst Preview: Preview Opened File** from the command palette).
+
+The repo's `.vscode/settings.json` already points Tinymist at the bundled
+Montserrat font. In other editors, add `assets/fonts` to your Typst font
+paths, or the slides fall back to Helvetica/Arial.
 
 ## Layout
 
