@@ -29,9 +29,6 @@
 #let logos = (
   // White lettering, for the charcoal background.
   inverted: image("../assets/logo/colour_horizontal_inverted.png"),
-  // Black lettering, for gold panels.
-  standard: image("../assets/logo/colour_horizontal_standard.png"),
-  mark: image("../assets/logo/colour_noletters_standard.png"),
 )
 
 // Entry point ------------------------------------------------------------
@@ -48,8 +45,6 @@
     bg-color: palette.bg,
     colors: palette,
     logo: logos.inverted,
-    logo-on-accent: logos.standard,
-    logo-mark: logos.mark,
     theme: "normal",
     count: "dot",
     toc: true,

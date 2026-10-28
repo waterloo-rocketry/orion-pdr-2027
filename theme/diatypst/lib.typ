@@ -32,12 +32,9 @@
   // Palette overrides; any key left out is derived from title-color/bg-color
   // the same way upstream Diatypst does it.
   colors: (:),
-  // Logo shown on dark/bg surfaces (footer, title slide).
+  // Logo for the bg colour (footer, title and section slides). It is never
+  // placed on accent-coloured panels.
   logo: none,
-  // Logo shown on accent-coloured panels (title and section slides).
-  logo-on-accent: none,
-  // Large mark for the title slide accent panel.
-  logo-mark: none,
 ) = {
 
   // Parsing
@@ -236,8 +233,8 @@
 
 
   // SLIDES STYLING --------------------------------------------------
-  // Section Slides: content on the left, accent panel with the section
-  // number on the right.
+  // Section Slides: content and logo on the left, accent panel with the
+  // section number on the right.
   show heading.where(level: 1): x => {
     section_counter.step()
     set page(header: none, footer: none, margin: 0cm)
@@ -245,7 +242,8 @@
     grid(
       columns: (2fr, 1fr),
       rows: 100%,
-      block(width: 100%, height: 100%, inset: (x: 0.5 * space, y: space),
+      block(width: 100%, height: 100%, inset: (x: 0.5 * space, y: 0.5 * space), grid(
+        rows: (1fr, auto),
         align(left + horizon)[
           #text(0.9em, weight: "semibold", fill: c.accent, tracking: 0.15em,
             upper[Section #section-number(n)])
@@ -253,14 +251,12 @@
           #text(2em, weight: "bold", fill: c.fg, x.body)
           #v(0.3em)
           #line(length: 2.5cm, stroke: 3pt + c.accent)
-        ]),
-      block(width: 100%, height: 100%, fill: c.accent, inset: 0.5 * space, {
+        ],
+        if logo != none { box(height: 0.35 * space, logo) },
+      )),
+      block(width: 100%, height: 100%, fill: c.accent, inset: 0.5 * space,
         place(left + horizon,
-          text(5em, weight: "bold", fill: c.on-accent.transparentize(80%), section-number(n)))
-        if logo-on-accent != none {
-          place(right + bottom, box(height: 0.4 * space, logo-on-accent))
-        }
-      }),
+          text(5em, weight: "bold", fill: c.on-accent.transparentize(80%), section-number(n)))),
     )
   }
   show heading.where(level: 2): pagebreak(weak: true) // this is where the magic happens
@@ -433,8 +429,7 @@
           if date != none { v(0.4em); date }
         },
       )),
-      block(width: 100%, height: 100%, fill: c.accent, inset: 0.5 * space,
-        if logo-mark != none { align(center + horizon, box(width: 70%, logo-mark)) }),
+      block(width: 100%, height: 100%, fill: c.accent),
     )
   }
 

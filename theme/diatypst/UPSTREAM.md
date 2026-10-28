@@ -24,7 +24,7 @@ Then update the commit hash above.
 List every change made to `lib.typ` here so upstream merges stay manageable.
 
 - New parameters: `colors` (palette dict: bg, fg, muted, accent, on-accent,
-  surface, surface-strong, rule), `logo`, `logo-on-accent`, `logo-mark`,
+  surface, surface-strong, rule), `logo`,
   `toc-title`. Colours not given are derived from `title-color` like upstream.
 - Body text colour set from `colors.fg` (upstream assumed black on light).
 - Header rebuilt as a grid: title (accent bar + text) on the left, counter on
@@ -33,9 +33,10 @@ List every change made to `lib.typ` here so upstream merges stay manageable.
   use `muted`.
 - Footer (normal theme): thin rule, `title | subtitle` left, logo right.
 - Section slides: left content (SECTION 0N label, title, accent rule) and an
-  accent panel on the right with a large faded number and logo.
-- Title slide: logo top-left, title, accent rule, subtitle; accent panel with
-  the logo mark on the right. Laid out as a flowing grid (no `place()`), so
+  accent panel on the right with a large faded number; logo bottom-left on
+  the dark side.
+- Title slide: logo top-left, title, accent rule, subtitle; plain accent panel
+  on the right. Logos are never placed on the accent colour. Laid out as a flowing grid (no `place()`), so
   long titles push content instead of overlapping it.
 - `authors` entries may be plain names or `(name: ..., role: ...)`; the title
   slide shows one column per author with the role underneath.

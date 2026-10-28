@@ -8,55 +8,29 @@
     (name: "Qian Qian", role: "Software Lead"),
     (name: "Shrey Shingala", role: "Software Lead"),
   ),
-  footer-title: "Orion PDR",
+  footer-title: "Orion - NG Ground Support Software System",
 )
 
-= Overview
+= Overview, Motivation & Feasibility
 
-== Overview <overview>
+== Overview
 
-- Omnibus is a data bus that transfers data from a set of data sources
-  ("sources") to a set of consumer data sinks ("sinks")
-- Key #accent[design drivers]
-  - Nested point
-    - Third level
+#lorem(10)
 
-== Requirements
+== Motivation & Feasibility
 
-+ Add support for a WebSocket transport
-+ Standardize message types within the Omnibus library
-+ Minimum unit test coverage >= 85%
+#lorem(10)
 
-/ Term: Definition block styling check
+= Requirements
 
-= Design
+= Explanation of Key Technological Choices
 
-== Key Stack Choices
+= Data Modeling
 
-Dependency management with `uv`; see @overview.
+= Deployment Architecture
 
-```python
-def bridge(msg: Message) -> None:
-    # Forward a message to all WebSocket clients
-    sio.emit("message", msg.to_dict(), namespace="/omnibus")
-```
+= Testing
 
-#quote[All technologies used are founded in industry best practices.]
-
-== Key Stack Choices
-
-#table(
-  columns: 3,
-  [Layer], [Choice], [Reason],
-  [Transport], [Socket.IO], [Rooms, acks],
-  [Frontend], [React + Vite], [Tooling],
-  [Packaging], [Electron], [Desktop apps],
-)
+= Project Management, Timelines, and Reviews
 
 = Action Items
-
-== Action Items
-
-+ Build WebSocket bridge
-+ Build Docker infra
-+ Define bindings for Omnibus messages
