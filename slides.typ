@@ -3,7 +3,11 @@
 #show: orion-slides.with(
   title: [Next-Gen Ground Support \ Software System (Orion)],
   subtitle: "Preliminary Design Review",
-  date: datetime.today().display("[month repr:long] [day], [year]"),
+  date: datetime(
+    year: 2026,
+    month: 10,
+    day: 29,
+  ).display("[month repr:long] [day], [year]"),
   authors: (
     (name: "Qian Qian", role: "Software Lead"),
     (name: "Shrey Shingala", role: "Software Lead"),
