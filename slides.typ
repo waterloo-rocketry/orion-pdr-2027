@@ -128,10 +128,39 @@ A dedicated PDR for Data Studio is planned for the near future.
 
 = Testing
 
+== Testing
+
+#accent[TL;DR: Everything gets unit tests.]
+
+- Keep intended behaviour well-defined for future maintainers, so we can fix bugs and add functionality without breaking existing workflows.
+- Aim for *85% test coverage*, with explicit tests for invalid input, disconnects and failure handling.
+- Add integration tests across the stack, including the server, sources, sinks, and applications.
+  - Use Fake Source and replay for repeatable tests without physical hardware.
+- Automate end-to-end testing where practical; the tooling and scope are still to be determined.
+  - Do manual testing and validation before accepting operational changes.
+- Well-maintained dependencies shall be used, and their versions pinned, so builds and test results are reproducible.
+
 = Project Management
 
 == Timelines, and Reviews
 
-#lorem(10)
+#link("https://github.com/waterloo-rocketry/2026-2027-software-issues/issues/51")[`2026-2027-software-issues#51`] contains the timeline and milestones for the Orion project.
+
+Duration: About 9 Months, from Early October 2026 to Mid July 2027.
+
+- Design and Specifications: October - Mid November;
+- Prototype Work through Late November.
+- Adapters, Deployment and Migration Preparation: Start in November
+  - Continue Alongside Implementation.
+- Native Implementation: Early January - Late June; CDR: Late January - Early February.
+- Full Integration and Readiness Checks: Late February - Mid July.
 
 = Action Items
+
+== Action Items
+
+1. Review the issues in #link("https://github.com/waterloo-rocketry/2026-2027-software-issues/issues/51")[`2026-2027-software-issues#51`] and its children.
+2. Start working on the specification, including the definition of the communication protocol, data model, API, and configuration format.
+3. Start working on the prototype, including the server, source and sink modules.
+4. Start building LJM library in Go.
+5. Plan for implementation of the Omnibus adapter which should allow Omnibus sources and sinks to work with Orion server.
