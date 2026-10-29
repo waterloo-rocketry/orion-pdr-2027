@@ -21,7 +21,14 @@
 
 #lorem(10)
 
-== Motivation & Feasibility
+== Motivation
+
+- Source-level breaking changes currently propagate across the stack, often requiring coordinated changes to dashboards and other consumers.
+- Data contracts and system state are spread across multiple components, making behaviour harder to reason about and changes harder to validate.
+- Adding new data sources and tooling increases maintenance overhead under the current architecture.
+- We want a simpler, more reliable stack with stronger guarantees around shared data structures and interfaces.
+
+== Feasibility
 
 #lorem(10)
 
