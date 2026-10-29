@@ -122,6 +122,10 @@ A dedicated PDR for Data Studio is planned for the near future.
 
 = Deployment Architecture
 
+== Raspberry Pi Deployment
+
+#image("assets/orion-deployment-pdr.svg", width: 100%)
+
 = Testing
 
 = Project Management
