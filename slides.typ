@@ -61,6 +61,63 @@ The GitHub issues #link("https://github.com/waterloo-rocketry/2026-2027-software
 
 = Explanation of Key Technological Choices
 
+== Go Stack
+
+Replacing the current Python stack with a Go stack.
+
+- It is a #accent[typed] language, aligning with our goal of having typed messages schemas and interfaces.
+- It compiles to a binary, which
+  - is less dependent on the runtime environment,
+  - is easier to deploy, and
+  - is easier to distribute.
+
+== Go Stack - Key Changes
+
+- Central Processing Server: switching from Python to Go
+- Sink and Source modules: switching from Python to Go
+- Dependency Management: switching from `uv` to Go's own dependency management tool.
+- Testing Framework: switching from `pytest` to Go's built-in testing framework.
+  - We might consider using other more feature-rich testing frameworks if it's deemed necessary during development.
+- Networking: switching from WebSockets to Protobuf messages over gRPC,
+  - it allows for typed messages, and
+  - it supports both unary (request-response) and streaming operations, which is useful for supporting both command/info routing and telemetry data streaming.
+
+== Deployment
+
+We continue to deploy on Raspberry Pi.
+
+- Raspberry Pi OS, Docker, and Ansible are kept as they allow the deployment to be reproducible and can be used to redeploy the system quickly and consistently.
+- Docker container may be further simplified compared to the Python stack, as the new stack is less dependent on the runtime environment and has fewer dependencies.
+- Deliver a single binary, and use different CLI flags to configure the binary to run as different modules (e.g. server, sink, source, etc.), which is easier to deploy and maintain.
+
+== Launch App
+
+#lorem(10)
+
+== Data Studio
+
+We are building Data Studio as a intended replacement for the current Omnibus "Data Processing" scripts, which are not well maintained and not intuitive to use.
+
+#accent[Goal]: a graphical app to review logs and export data, without needing to figure out how to use command-line scripts.
+
+- *Import* Omnibus, Orion and other agreed log formats.
+  - For Orion, it strictly follows the Orion data model and API.
+- *Plot & Select* series and time ranges interactively.
+- *Export* the selection as CSV, images, or other formats.
+
+== Data Studio - Proposed Stack
+
+We want to use a modern web stack (e.g. React + TypeScript + D3.js) for Data Studio frontend, and use Go for the logic and data processing backend, which stays consistent with the rest of Orion system. #link("https://wails.io/")[`Wails`] is the proposed framework for this stack.
+
+- We might consider Vue for the frontend.
+- Wails is sort of Electron, but it uses Go as the backend.
+  - It is considered usable for the forseeable future and is actively maintained.
+  - The newest version (v3.0.0) just released October 26th, 2026.\ The previous version (v2.17.0) was released mid-October 2026.
+  - It was actively maintained with regular commits.
+  - Unfortunately, it is not as popular and no public record shows that well-known companies or projects are using or backing it.
+
+A dedicated PDR for Data Studio is planned for the near future.
+
 = Data Modeling
 
 = Deployment Architecture
