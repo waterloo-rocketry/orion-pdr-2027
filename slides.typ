@@ -111,7 +111,7 @@ We are building Data Studio as a intended replacement for the current Omnibus "D
 - *Plot & Select* series and time ranges interactively.
 - *Export* the selection as CSV, images, or other formats.
 
-== Data Studio - Proposed Stack
+== Data Studio
 
 We want to use a modern web stack (e.g. React + TypeScript + D3.js) for Data Studio frontend, and use Go for the logic and data processing backend, which stays consistent with the rest of Orion system. #link("https://wails.io/")[`Wails`] is the proposed framework for this stack.
 
@@ -122,7 +122,7 @@ We want to use a modern web stack (e.g. React + TypeScript + D3.js) for Data Stu
   - It was actively maintained with regular commits.
   - Unfortunately, it is not as popular and no public record shows that well-known companies or projects are using or backing it.
 
-A dedicated PDR for Data Studio is planned for the near future.
+A dedicated PDR for Data Studio may be planned for the near future.
 
 = Data Modeling
 
