@@ -19,7 +19,13 @@
 
 == Overview
 
-#lorem(10)
+#accent[Orion: overhauling Omnibus into its better successor.]
+
+- Same role as Omnibus: the hub between ground hardware (rocket CAN, LabJack DAQ, RLCS) and the operator applications.
+- Rebuilt around one typed, versioned API, so sources and applications can change without breaking each other.
+- A single Go server owns shared state, component health, command tracking and logging.
+- Launch App (replacing the Omnibus Dashboard and DAQms) and Data Studio (replacing the data processing scripts) build on top of it.
+- Staged migration: Omnibus stays production-ready until Orion fully replaces it.
 
 == Motivation
 
@@ -30,7 +36,11 @@
 
 == Feasibility
 
-#lorem(10)
+- *Performance:* the expected load (CAN at hundreds of messages per second; DAQ at about 1 kHz across about 20 channels, batched) is well within the capacity of a Go server on a Raspberry Pi.
+- *Technical maturity:* Go, Protobuf / gRPC and Electron / React are mature, widely adopted technologies, with code generation for every language in our stack.
+- *Reuse of existing work:* the Parsley libraries, the LabJack integration and the Ansible / Docker deployment (`daq-raspi-deploy`) carry forward, reducing new development.
+- *Incremental migration:* the Omnibus Adapter (\#61) lets existing sources and consumers run alongside Orion, so migration proceeds component by component instead of as a single cut-over.
+- *Risk management:* Omnibus remains the production fallback, scope is staged (MVP: the USB debug path end to end), and work is split into issues sized for new members.
 
 = Requirements
 
@@ -124,13 +134,58 @@ We want to use a modern web stack (e.g. React + TypeScript + D3.js) for Data Stu
 
 A dedicated PDR for Data Studio may be planned for the near future.
 
+== Lessons from Omnibus
+
+Omnibus became hard to change because device knowledge leaked everywhere:
+
+- Messages are a channel string plus an untyped dict, so every app hand-parses every source (`dashboard/parsers.py`, `omnibus-ts`, `can_field_definitions.py`).
+- Apps import Parsley directly, so a RocketCAN change can break the dashboard.
+- No registry or health model; commands are fire-and-forget raw CAN.
+- Two transports (ZMQ and a SocketIO bridge) and Python-script configuration.
+
+#accent[Orion's rule: device knowledge stays inside components.]
+
+== Design Rules
+
+#table(
+  columns: (1fr, 1fr),
+  [Rule], [Why],
+  [Decode at the component boundary: only the CAN Bridge (and the Launch App's direct USB mode) understand CAN.], [A RocketCAN change touches only those, never the server or the other apps.],
+  [Generic contract: device details are catalog _data_ (types, units, command schemas), not new contract _types_.], [Adding a source never edits the contract or regenerates every client.],
+  [Nothing outside a component knows CAN: command presets are generic, apps bind to catalog channels.], [Apps and the server stay unchanged when hardware changes.],
+  [Typed, versioned and machine-checked at every boundary.], [Breaking changes are caught by fixtures (\#86), not at launch.],
+)
+
 = Data Modeling
 
+== Data Model
+
+Refer to the Excalidraw drawing.
+
+== Example Messages
+
+#align(center, image("assets/diagrams/orion-messages.png", width: 100%, height: 100%, fit: "contain"))
+
 = Deployment Architecture
+
+== System Architecture
+
+#align(center, image("assets/diagrams/orion-architecture.png", width: 100%, height: 100%, fit: "contain"))
 
 == Raspberry Pi Deployment
 
 #image("assets/orion-deployment-pdr.svg", width: 100%)
+
+== Reliability and Recovery
+
+- *Process isolation:* one crash never takes down another process; a supervisor restarts each one automatically.
+- *Fast recovery:* after a server restart, components reconnect and re-register and apps re-snapshot, within seconds.
+- *No silent data loss:* components buffer and log locally while the server is down; gaps are explicit.
+- *Honest data:* stale or offline channels are always flagged, never shown as live.
+- *Safe commands:* commands expire, are never retried blindly, and an ambiguous outcome is `UNKNOWN`.
+- *Safety-critical path:* RLCS tower actuation is hardware. Rocket QD301 / ignition commands pass through Orion until RLCS v4, so that path gets stricter rules and firmware fail-safes.
+- *Fallback:* Omnibus stays production-ready until Orion fully replaces it.
+- *Deployment:* offline, reproducible, with tested rollback (\#62).
 
 = Testing
 

@@ -1,0 +1,175 @@
+// Orion API: SAMPLE definition for the Design PDR.
+// Illustrative only. Names, fields and transport are finalized in spec (#59).
+syntax = "proto3";
+package orion.v1;
+
+// ---------- shared types ----------
+
+enum Quality {
+  QUALITY_UNSPECIFIED = 0;
+  VALID = 1;
+  STALE = 2;
+  INVALID = 3;
+}
+
+enum ValueType {
+  VALUE_TYPE_UNSPECIFIED = 0;
+  NUMBER = 1;
+  BOOL = 2;
+  TEXT = 3;
+  ENUM = 4;
+}
+
+message Value {
+  oneof kind {
+    double number = 1;
+    bool flag = 2;
+    string text = 3;
+    string enum_value = 4;
+  }
+}
+
+// What a component advertises when it registers (the catalog).
+message ChannelInfo {
+  string id = 1;                    // "INJECTOR.ROCKET/PT_CHANNEL_1"
+  ValueType type = 2;
+  string unit = 3;                  // "psi"
+  repeated string enum_values = 4;  // only for ENUM channels
+}
+
+message ParamInfo {
+  string name = 1;                  // "actuator"
+  ValueType type = 2;
+  repeated string enum_values = 3;  // ["ACTUATOR_OX_INJECTOR_VALVE", ...]
+}
+
+message CommandInfo {
+  string type = 1;                  // "ACTUATOR_CMD"
+  repeated ParamInfo params = 2;
+}
+
+// ---------- component side ----------
+
+message RegisterRequest {
+  string component = 1;             // "can-upper"
+  repeated ChannelInfo channels = 2;
+  repeated CommandInfo commands = 3;
+}
+message RegisterResponse {
+  string session = 1;               // "s-8f2", invalid after a server restart
+}
+
+message TelemetryBatch {
+  uint32 schema_version = 1;
+  string component = 2;
+  string session = 3;
+  uint64 seq = 4;                   // gaps in seq = lost data, made explicit
+  string channel = 5;
+  string time_basis = 6;            // "board-ms, unwrapped" | "acquisition-clock"
+  repeated double times = 7;
+  repeated Value values = 8;
+  Quality quality = 9;
+}
+message PublishSummary {
+  uint64 last_seq_accepted = 1;
+}
+
+message HealthReport {
+  string component = 1;
+  string session = 2;
+  bool ok = 3;
+  string link = 4;                  // "USB up"
+  map<string, double> counters = 5; // frames_per_s, crc_errors, ...
+}
+message HealthAck {}
+
+message CommandDispatch {
+  string command_id = 1;
+  string command = 2;
+  map<string, Value> params = 3;
+  int64 expires_at_unix_ms = 4;
+}
+
+// ---------- commands (shared) ----------
+
+enum CommandState {
+  COMMAND_STATE_UNSPECIFIED = 0;
+  ACCEPTED = 1;
+  REJECTED = 2;
+  EXPIRED = 3;
+  DISPATCHED = 4;
+  CONFIRMED = 5;
+  FAILED = 6;
+  UNKNOWN = 7;
+}
+
+message CommandStatus {
+  string command_id = 1;
+  CommandState state = 2;
+  int64 at_unix_ms = 3;
+  string detail = 4;                // reason for REJECTED / FAILED
+}
+
+// ---------- app side ----------
+
+message ListChannelsRequest {
+  string component_filter = 1;
+}
+message ListChannelsResponse {
+  repeated ChannelInfo channels = 1;
+}
+
+message SnapshotRequest {
+  repeated string channels = 1;
+}
+message ChannelValue {
+  string channel = 1;
+  Value value = 2;
+  double time = 3;
+  Quality quality = 4;
+}
+message Snapshot {
+  uint64 revision = 1;
+  repeated ChannelValue values = 2;
+}
+
+message SubscribeRequest {
+  repeated string channels = 1;
+  uint64 from_revision = 2;         // from GetSnapshot
+}
+message TelemetryEvent {
+  uint64 revision = 1;
+  oneof event {
+    ChannelValue value = 2;
+    string component_stale = 3;     // component id that went STALE / offline
+  }
+}
+
+message SubmitCommandRequest {
+  string request_id = 1;            // same request_id on retry = same command, never sent twice
+  string target = 2;                // "can-upper"
+  string command = 3;               // "ACTUATOR_CMD"
+  map<string, Value> params = 4;
+  uint32 expires_in_ms = 5;
+}
+message CommandRef {
+  string command_id = 1;
+}
+
+// ---------- services ----------
+
+service ComponentService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);                    // unary
+  rpc PublishTelemetry(stream TelemetryBatch) returns (PublishSummary);        // client stream
+  rpc ReportHealth(stream HealthReport) returns (HealthAck);                   // client stream
+  rpc CommandChannel(stream CommandStatus) returns (stream CommandDispatch);   // bidirectional
+}
+
+service AppService {
+  rpc ListChannels(ListChannelsRequest) returns (ListChannelsResponse);        // unary
+  rpc GetSnapshot(SnapshotRequest) returns (Snapshot);                         // unary
+  rpc SubscribeTelemetry(SubscribeRequest) returns (stream TelemetryEvent);    // server stream
+  rpc SubmitCommand(SubmitCommandRequest) returns (CommandStatus);             // unary: ACCEPTED | REJECTED
+  rpc GetCommand(CommandRef) returns (CommandStatus);                          // unary
+  rpc WatchCommand(CommandRef) returns (stream CommandStatus);                 // server stream
+}
