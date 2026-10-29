@@ -156,21 +156,27 @@ Omnibus became hard to change because device knowledge leaked everywhere:
   [Typed, versioned and machine-checked at every boundary.], [Breaking changes are caught by fixtures (\#86), not at launch.],
 )
 
-= Data Modeling
+= Architecture Overview
 
-== Data Model
+== Architecture Overview
 
-Refer to the Excalidraw drawing.
+#grid(
+  columns: (1fr, auto),
+  [#align(center, image("assets/diagrams/orion-architecture-full.png", width: 100%, height: 100%, fit: "contain"))],
+  [
+    #align(horizon)[
+      Diagram available as\ `assets/diagrams/orion-architecture-full.png`\ and #link("https://excalidraw.com/#room=050a9941c53ff3735967,s2u8vinkd5twBtTNCZugcQ")[Excalidraw drawing].
+    ]
+  ]
+)
 
-== Example Messages
-
-#align(center, image("assets/diagrams/orion-messages.png", width: 100%, height: 100%, fit: "contain"))
-
-= Deployment Architecture
+= System Architecture
 
 == System Architecture
 
 #align(center, image("assets/diagrams/orion-architecture.png", width: 100%, height: 100%, fit: "contain"))
+
+= Deployment Architecture
 
 == Raspberry Pi Deployment
 
@@ -186,6 +192,462 @@ Refer to the Excalidraw drawing.
 - *Safety-critical path:* RLCS tower actuation is hardware. Rocket QD301 / ignition commands pass through Orion until RLCS v4, so that path gets stricter rules and firmware fail-safes.
 - *Fallback:* Omnibus stays production-ready until Orion fully replaces it.
 - *Deployment:* offline, reproducible, with tested rollback (\#62).
+
+= Message, Data, and API Definitions
+
+== Sample Messages and API Definitions
+
+#align(center, image("assets/diagrams/orion-messages.png", width: 100%, height: 100%, fit: "contain"))
+
+== Example Orion Telemetry Data Model
+
+#code-sized(7pt)[
+  #set par(leading: 0.4em)
+  #grid(
+    columns: (1fr, 1fr),
+    gutter: 1.2em,
+    [
+      #accent[Shared Envelope]
+
+      ```protobuf
+      message TelemetryBatch {
+        string component_id = 1;
+        string session_id = 2;
+        uint64 sequence = 3;
+        SourceInfo source = 7;
+        double published_at_unix = 8;
+        oneof payload {
+          DAQBatch daq = 18;
+          CANMessage can = 19;
+        }
+      }
+      ```
+
+      #accent[DAQ]
+
+      ```protobuf
+      message DAQBatch {
+        repeated double sample_times = 1;
+        repeated NumericSamples samples = 2;
+        uint32 configured_sample_rate_hz = 3;
+        optional double actual_sample_rate_hz = 4;
+      }
+      ```
+    ],
+    [
+      #accent[Samples]
+
+      ```protobuf
+      message NumericSamples {
+        string channel_id = 1;
+        repeated double values = 3;
+
+      }
+
+      ```
+
+      #accent[CAN]
+
+      ```protobuf
+      message CANMessage {
+        string message_type = 1;
+        string subject_id = 2;
+        string priority = 3;
+        // ...
+        double sample_time = 6;
+        repeated NumericSamples samples = 7;
+      }
+      ```
+    ],
+  )
+]
+
+== Example Orion Source Metadata
+
+#code-sized(6.5pt)[
+  #set par(leading: 0.4em)
+  #grid(
+    columns: (1fr, 1fr),
+    gutter: 1.2em,
+    [
+      #accent[Source Fields and Types]
+
+      ```protobuf
+      message SourceInfo {
+        string channel = 1;
+        string instance_id = 2;
+        uint32 format_version = 3;
+        SourceType source_type = 6;
+      }
+
+      enum SourceType {
+        SOURCE_TYPE_UNSPECIFIED = 0;
+        DAQ = 1;
+        CAN = 2;
+        OMNIBUS_ADAPTER = 3;
+        REPLAY = 4;
+      }
+      ```
+    ],
+    [
+      #accent[DAQ]
+
+      ```go
+      var daqSource *pb.SourceInfo = &pb.SourceInfo{
+        SourceType: pb.SourceType_DAQ,
+        Channel: "DAQ/ljm",
+        FormatVersion: 3,
+      }
+      ```
+
+      #accent[CAN]
+
+      ```go
+      var canSource *pb.SourceInfo = &pb.SourceInfo{
+        SourceType: pb.SourceType_CAN,
+        Channel:    "CAN/Parsley",
+        InstanceId: "daq/usb//dev/ttyACM0",
+        FormatVersion: 2,
+      }
+      ```
+    ],
+  )
+]
+
+== Comparison with Omnibus - DAQ
+
+#code-sized(6.5pt)[
+  #set par(leading: 0.4em)
+  #grid(
+    columns: (1fr, 1fr),
+    gutter: 1.2em,
+    [
+      #accent[Omnibus]
+
+      ```python
+      sender.send("DAQ/ljm", {
+          "timestamp": 1700000000.025,
+          "data": {
+              "PT-OX-TANK (psi)": [612.4, 612.6],
+              "Voltage (V)": [1.50, 1.51],
+          },
+          "relative_timestamps": [
+              1700000000.000,
+              1700000000.001,
+          ],
+          "sample_rate": 1000,
+          "message_format_version": 3,
+      })
+      ```
+    ],
+    [
+      #accent[Proposed Orion]
+
+      ```go
+var daq *pb.DAQBatch = &pb.DAQBatch{
+  ConfiguredSampleRateHz: 1000,
+  ActualSampleRateHz: proto.Float64(1000),
+  SampleTimes: []float64{1.7e9, 1700000000.001},
+  Samples: []*pb.NumericSamples{
+    &pb.NumericSamples{
+      ChannelId: "PT-OX-TANK",
+      Values: []float64{612.4, 612.6},
+    },
+    &pb.NumericSamples{
+      ChannelId: "Voltage",
+      Values: []float64{1.50, 1.51},
+    },
+  },
+}
+var batch *pb.TelemetryBatch
+batch = &pb.TelemetryBatch{
+  ComponentId: "daq-main", SessionId: "run-42",
+  Sequence: 88120, Source: daqSource,
+  PublishedAtUnix: 1700000000.026,
+  Payload: &pb.TelemetryBatch_Daq{Daq: daq},
+}
+stream.Send(batch)
+```
+    ],
+  )
+]
+
+== Comparison with Omnibus - CAN
+
+#code-sized(6.5pt)[
+  #set par(leading: 0.4em)
+  #grid(
+    columns: (1fr, 1fr),
+    gutter: 1.2em,
+    [
+      #accent[Omnibus]
+
+      ```python
+      sender.send("CAN/Parsley", {
+          "board_type_id": "INJECTOR",
+          "board_inst_id": "ROCKET",
+          "msg_prio": "LOW",
+          "msg_type": "SENSOR_ANALOG32",
+          "msg_metadata": "SENSOR_PT_CHANNEL_1",
+          "data": {
+              "time": 37.595,
+              "value": 1310,
+          },
+          "parsley": "daq/usb//dev/ttyACM0",
+          "message_format_version": 2,
+      })
+      ```
+    ],
+    [
+      #accent[Proposed Orion]
+
+      ```go
+			var can *pb.CANMessage = &pb.CANMessage{
+			  DeviceType: "INJECTOR",
+			  DeviceInstance: "ROCKET",
+			  MessageType: "SENSOR_ANALOG32",
+			  SubjectId: "SENSOR_PT_CHANNEL_1",
+			  Priority: "LOW", SampleTime: 37.595,
+			  Samples: []*pb.NumericSamples{
+			    &pb.NumericSamples{
+			      ChannelId: "injector/rocket/pt1",
+			      Values: []float64{1310},
+			    },
+			  },
+			}
+			var batch *pb.TelemetryBatch
+			batch = &pb.TelemetryBatch{
+			  ComponentId: "can-main", SessionId: "run-17",
+			  Sequence: 1, Source: canSource,
+			  PublishedAtUnix: 1700000000.030,
+			  Payload: &pb.TelemetryBatch_Can{Can: can},
+			}
+			stream.Send(batch)
+			```
+    ],
+  )
+]
+
+== Example Orion Command Fields
+
+#code-sized(6.5pt)[
+  #set par(leading: 0.4em)
+  #grid(
+    columns: (1fr, 1fr),
+    gutter: 1.2em,
+    [
+      #accent[Request]
+
+      ```protobuf
+      message CommandRequest {
+        string request_id = 1;
+        string target = 2;
+        double expires_at_unix = 3;
+        double issued_at_unix = 5;
+        oneof action {
+          CANCommand can = 6;
+        }
+      }
+      ```
+
+      #accent[CAN Payload]
+
+      ```protobuf
+      message CANCommand {
+        string connection_id = 1;
+        string message_type = 2;
+        string priority = 3;
+        string device_type = 4;
+        string device_instance = 5;
+        double message_time = 6;
+        string subject_id = 7;
+        ActuatorState state = 8;
+      }
+      ```
+    ],
+    [
+      #accent[Receipt and Status]
+
+      ```protobuf
+      message CommandReceipt {
+        string command_id = 1;
+        CommandStatus status = 2;
+      }
+
+      enum CommandStatus {
+        COMMAND_STATUS_UNSPECIFIED = 0;
+        ACCEPTED = 1;
+        DISPATCHED = 2;
+        CONFIRMED = 3;
+        FAILED = 4;
+        EXPIRED = 5;
+        UNKNOWN = 6;
+      }
+      ```
+
+      #accent[Actuator State]
+
+      ```protobuf
+      enum ActuatorState {
+        ACTUATOR_STATE_UNSPECIFIED = 0;
+        ON = 1;
+        OFF = 2;
+      }
+      ```
+    ],
+  )
+]
+
+== Comparison with Omnibus - Commands
+
+#code-sized(6.5pt)[
+  #set par(leading: 0.4em)
+  #grid(
+    columns: (1fr, 1fr),
+    gutter: 1.2em,
+    [
+      #accent[Omnibus]
+
+      ```python
+      sender.send("CAN/Commands", {
+          "parsley": "EGSE-UPPER/usb//dev/ttyACM0",
+          "data": {
+              "time": 1700000000.0,
+              "can_msg": {
+                  "msg_prio": "HIGHEST",
+                  "msg_type": "ACTUATOR_CMD",
+                  "board_type_id": "DAQ",
+                  "board_inst_id": "GROUND",
+                  "time": 0,
+                  "msg_metadata": "ACTUATOR_OX_INJECTOR_VALVE",
+                  "cmd_state": "ACT_STATE_ON",
+              },
+          },
+      })
+      ```
+    ],
+    [
+      #accent[Proposed Orion]
+
+      ```go
+			var request *pb.CommandRequest
+			request = &pb.CommandRequest{
+			  RequestId: "operator-request-17",
+			  Target: "ox-injector-valve",
+			  IssuedAtUnix: 1700000000.0,
+			  ExpiresAtUnix: 1700000001.0,
+			  Action: &pb.CommandRequest_Can{
+			    Can: &pb.CANCommand{
+			      ConnectionId: "EGSE-UPPER/usb//dev/ttyACM0",
+			      MessageType: "ACTUATOR_CMD",
+			      Priority: "HIGHEST",
+			      DeviceType: "DAQ", DeviceInstance: "GROUND",
+			      MessageTime: 0,
+			      SubjectId: "ACTUATOR_OX_INJECTOR_VALVE",
+			      State: pb.ActuatorState_ON,
+			    },
+			  },
+			}
+			var receipt *pb.CommandReceipt
+			receipt, _ = commandClient.SubmitCommand(ctx, request)
+			return receipt
+			```
+    ],
+  )
+]
+
+== Unary vs. Streaming
+
+#code-sized(7pt)[
+  #set par(leading: 0.4em)
+  #grid(
+    columns: (1fr, 1fr),
+    gutter: 1.2em,
+    [
+      #accent[Unary]
+
+      ```go
+      var receipt *pb.CommandReceipt
+      receipt, _ = commandClient.SubmitCommand(ctx, request)
+      return receipt
+      ```
+
+      Ask to open a valve. The reply confirms acceptance, not movement.
+    ],
+    [
+      #accent[Stream]
+
+      ```go
+      var stream pb.Telemetry_PublishTelemetryClient
+      stream, _ = telemetryClient.PublishTelemetry(ctx)
+      for {
+        stream.Send(batch)
+      }
+      stream.CloseAndRecv()
+      ```
+
+      Telemetry data are sent continuously through a stream.
+    ],
+  )
+]
+
+== Sample APIs
+
+#code-sized(7pt)[
+  #set par(leading: 0.4em)
+  #grid(
+    columns: (1fr, 1fr),
+    gutter: 1.2em,
+    [
+      #accent[Sources]
+
+      ```protobuf
+      service Components {
+        rpc RegisterComponent(RegisterRequest)
+          returns (RegisterReply);
+        rpc ReportHealth(HealthReport)
+          returns (Ack);
+      }
+      ```
+    ],
+    [
+      #accent[Discovery]
+
+      ```protobuf
+      service Discovery {
+        rpc ListChannels(ChannelFilter)
+          returns (ChannelCatalog);
+        rpc WatchComponentStatus(StatusFilter)
+          returns (stream ComponentStatus);
+      }
+      ```
+    ],
+    [
+      #accent[Telemetry]
+
+      ```protobuf
+      service Telemetry {
+        rpc PublishTelemetry(stream TelemetryBatch)
+          returns (PublishResult);
+        rpc SubscribeTelemetry(SubscriptionRequest)
+          returns (stream TelemetryEvent);
+      }
+      ```
+    ],
+    [
+      #accent[Commands]
+
+      ```protobuf
+      service Commands {
+        rpc SubmitCommand(CommandRequest)
+          returns (CommandReceipt);
+        rpc WatchCommand(WatchCommandRequest)
+          returns (stream CommandReceipt);
+      }
+      ```
+    ],
+  )
+]
 
 = Testing
 

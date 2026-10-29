@@ -26,6 +26,9 @@
   mono: ("Menlo", "DejaVu Sans Mono"),
 )
 
+// Code block text size (Typst's default is 0.8em of body text, ~8.8pt).
+#let code-size = 7.5pt
+
 #let logos = (
   // White lettering, for the charcoal background.
   inverted: image("../assets/logo/colour_horizontal_inverted.png"),
@@ -51,8 +54,16 @@
     toc-title: "Agenda",
     ..args,
   )
+  // After Diatypst's own raw show rules, otherwise they take precedence.
+  show raw.where(block: true): set text(size: code-size)
   body
 }
 
 // Helpers ----------------------------------------------------------------
+// Override the code block size for one block: #code-sized(6pt)[```...```]
+#let code-sized(size, body) = {
+  show raw.where(block: true): set text(size: size)
+  body
+}
+
 #let accent(body) = text(fill: palette.accent, weight: "bold", body)
