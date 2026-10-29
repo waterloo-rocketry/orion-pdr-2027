@@ -98,7 +98,7 @@ Launch App will be a desktop app for use during rocket launches, replacing the o
 - Functional modern web development stack with easy compatibility on any operator's device.
 - Easy to build, easy to deploy, easily compatible with the rest of our software.
 - Compatible with Parsley through Parsley-TS (TypeScript).
-- React is a well-known and well-supported frontend framework and is incredibly popular.
+- React is a well-known and well-supported frontend framework and is widely-used.
 
 == Data Studio
 
