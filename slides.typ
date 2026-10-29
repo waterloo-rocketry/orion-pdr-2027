@@ -207,60 +207,37 @@ Omnibus became hard to change because device knowledge leaked everywhere:
     columns: (1fr, 1fr),
     gutter: 1.2em,
     [
-      #accent[Shared Envelope]
+      #accent[Shared Telemetry]
 
       ```protobuf
       message TelemetryBatch {
         string component_id = 1;
         string session_id = 2;
         uint64 sequence = 3;
-        SourceInfo source = 7;
-        double published_at_unix = 8;
-        oneof payload {
-          DAQBatch daq = 18;
-          CANMessage can = 19;
-        }
-      }
-      ```
-
-      #accent[DAQ]
-
-      ```protobuf
-      message DAQBatch {
-        repeated double sample_times = 1;
-        repeated NumericSamples samples = 2;
-        uint32 configured_sample_rate_hz = 3;
-        optional double actual_sample_rate_hz = 4;
+        SourceInfo source = 4;
+        double published_at_unix = 5;
+        repeated double sample_times = 6;
+        repeated NumericSamples samples = 7;
+        optional double configured_sample_rate_hz = 8;
+        optional double actual_sample_rate_hz = 9;
       }
       ```
     ],
     [
-      #accent[Samples]
+      #accent[Decoded Channel Readings]
 
       ```protobuf
       message NumericSamples {
         string channel_id = 1;
-        repeated double values = 3;
-
-      }
-
-      ```
-
-      #accent[CAN]
-
-      ```protobuf
-      message CANMessage {
-        string message_type = 1;
-        string subject_id = 2;
-        string priority = 3;
-        // ...
-        double sample_time = 6;
-        repeated NumericSamples samples = 7;
+        repeated double values = 2;
+        string device_id = 3;
       }
       ```
     ],
   )
 ]
+
+CAN and DAQ keep their own components. Both publish decoded values through this shared model.
 
 == Example Orion Source Metadata
 
@@ -277,7 +254,7 @@ Omnibus became hard to change because device knowledge leaked everywhere:
         string channel = 1;
         string instance_id = 2;
         uint32 format_version = 3;
-        SourceType source_type = 6;
+        SourceType source_type = 4;
       }
 
       enum SourceType {
@@ -295,8 +272,9 @@ Omnibus became hard to change because device knowledge leaked everywhere:
       ```go
       var daqSource *pb.SourceInfo = &pb.SourceInfo{
         SourceType: pb.SourceType_DAQ,
-        Channel: "DAQ/ljm",
-        FormatVersion: 3,
+        Channel: "daq-main",
+        InstanceId: "daq-main",
+        FormatVersion: 1,
       }
       ```
 
@@ -305,9 +283,9 @@ Omnibus became hard to change because device knowledge leaked everywhere:
       ```go
       var canSource *pb.SourceInfo = &pb.SourceInfo{
         SourceType: pb.SourceType_CAN,
-        Channel:    "CAN/Parsley",
-        InstanceId: "daq/usb//dev/ttyACM0",
-        FormatVersion: 2,
+        Channel:    "rocket-can",
+        InstanceId: "can-upper",
+        FormatVersion: 1,
       }
       ```
     ],
@@ -344,29 +322,26 @@ Omnibus became hard to change because device knowledge leaked everywhere:
       #accent[Proposed Orion]
 
       ```go
-var daq *pb.DAQBatch = &pb.DAQBatch{
-  ConfiguredSampleRateHz: 1000,
-  ActualSampleRateHz: proto.Float64(1000),
-  SampleTimes: []float64{1.7e9, 1700000000.001},
-  Samples: []*pb.NumericSamples{
-    &pb.NumericSamples{
-      ChannelId: "PT-OX-TANK",
-      Values: []float64{612.4, 612.6},
-    },
-    &pb.NumericSamples{
-      ChannelId: "Voltage",
-      Values: []float64{1.50, 1.51},
-    },
-  },
-}
-var batch *pb.TelemetryBatch
-batch = &pb.TelemetryBatch{
-  ComponentId: "daq-main", SessionId: "run-42",
-  Sequence: 88120, Source: daqSource,
-  PublishedAtUnix: 1700000000.026,
-  Payload: &pb.TelemetryBatch_Daq{Daq: daq},
-}
-stream.Send(batch)
+			var batch *pb.TelemetryBatch
+			batch = &pb.TelemetryBatch{
+			  ComponentId: "daq-main", SessionId: "run-42",
+			  Sequence: 88120, Source: daqSource,
+			  PublishedAtUnix: 1700000000.026,
+			  ConfiguredSampleRateHz: proto.Float64(1000),
+			  ActualSampleRateHz: proto.Float64(1000),
+			  SampleTimes: []float64{1.7e9, 1700000000.001},
+			  Samples: []*pb.NumericSamples{
+			    &pb.NumericSamples{
+			      DeviceId: "daq-main", ChannelId: "PT-OX-TANK",
+			      Values: []float64{612.4, 612.6},
+			    },
+			    &pb.NumericSamples{
+			      DeviceId: "daq-main", ChannelId: "Voltage",
+			      Values: []float64{1.50, 1.51},
+			    },
+			  },
+			}
+			stream.Send(batch)
 ```
     ],
   )
@@ -402,25 +377,19 @@ stream.Send(batch)
       #accent[Proposed Orion]
 
       ```go
-			var can *pb.CANMessage = &pb.CANMessage{
-			  DeviceType: "INJECTOR",
-			  DeviceInstance: "ROCKET",
-			  MessageType: "SENSOR_ANALOG32",
-			  SubjectId: "SENSOR_PT_CHANNEL_1",
-			  Priority: "LOW", SampleTime: 37.595,
-			  Samples: []*pb.NumericSamples{
-			    &pb.NumericSamples{
-			      ChannelId: "injector/rocket/pt1",
-			      Values: []float64{1310},
-			    },
-			  },
-			}
 			var batch *pb.TelemetryBatch
 			batch = &pb.TelemetryBatch{
 			  ComponentId: "can-main", SessionId: "run-17",
 			  Sequence: 1, Source: canSource,
 			  PublishedAtUnix: 1700000000.030,
-			  Payload: &pb.TelemetryBatch_Can{Can: can},
+			  SampleTimes: []float64{37.595},
+			  Samples: []*pb.NumericSamples{
+			    &pb.NumericSamples{
+			      DeviceId: "injector-rocket",
+			      ChannelId: "PT_CHANNEL_1",
+			      Values: []float64{1310},
+			    },
+			  },
 			}
 			stream.Send(batch)
 			```
@@ -436,33 +405,18 @@ stream.Send(batch)
     columns: (1fr, 1fr),
     gutter: 1.2em,
     [
-      #accent[Request]
+      #accent[Command Request]
 
       ```protobuf
       message CommandRequest {
         string request_id = 1;
         string target = 2;
         double expires_at_unix = 3;
-        double issued_at_unix = 5;
-        oneof action {
-          CANCommand can = 6;
-        }
+        double issued_at_unix = 4;
+        string operation = 5;
+        map<string, string> params = 6;
       }
-      ```
 
-      #accent[CAN Payload]
-
-      ```protobuf
-      message CANCommand {
-        string connection_id = 1;
-        string message_type = 2;
-        string priority = 3;
-        string device_type = 4;
-        string device_instance = 5;
-        double message_time = 6;
-        string subject_id = 7;
-        ActuatorState state = 8;
-      }
       ```
     ],
     [
@@ -484,19 +438,11 @@ stream.Send(batch)
         UNKNOWN = 6;
       }
       ```
-
-      #accent[Actuator State]
-
-      ```protobuf
-      enum ActuatorState {
-        ACTUATOR_STATE_UNSPECIFIED = 0;
-        ON = 1;
-        OFF = 2;
-      }
-      ```
     ],
   )
 ]
+
+The app sends named parameters as strings. The catalog defines their types and allowed values; the server validates before routing.
 
 == Comparison with Omnibus - Commands
 
@@ -530,30 +476,36 @@ stream.Send(batch)
       #accent[Proposed Orion]
 
       ```go
-			var request *pb.CommandRequest
-			request = &pb.CommandRequest{
-			  RequestId: "operator-request-17",
-			  Target: "ox-injector-valve",
-			  IssuedAtUnix: 1700000000.0,
-			  ExpiresAtUnix: 1700000001.0,
-			  Action: &pb.CommandRequest_Can{
-			    Can: &pb.CANCommand{
-			      ConnectionId: "EGSE-UPPER/usb//dev/ttyACM0",
-			      MessageType: "ACTUATOR_CMD",
-			      Priority: "HIGHEST",
-			      DeviceType: "DAQ", DeviceInstance: "GROUND",
-			      MessageTime: 0,
-			      SubjectId: "ACTUATOR_OX_INJECTOR_VALVE",
-			      State: pb.ActuatorState_ON,
-			    },
-			  },
-			}
-			var receipt *pb.CommandReceipt
-			receipt, _ = commandClient.SubmitCommand(ctx, request)
-			return receipt
-			```
+      var request *pb.CommandRequest
+      request = &pb.CommandRequest{
+        RequestId: "op2-17",
+        Target: "ox-injector-valve",
+        Operation: "set-state",
+        Params: map[string]string{"state": "ON"},
+        IssuedAtUnix: 1700000000.0,
+        ExpiresAtUnix: 1700000002.0,
+      }
+      commandClient.SubmitCommand(ctx, request)
+      // Example reply: cmd-17, ACCEPTED
+      ```
     ],
   )
+]
+
+== How the Component Maps Commands
+
+The app requests an action on a registered target. Orion routes it to the configured owner.
+
+#block[
+#set table(inset: (x: 4pt, y: 2pt))
+#table(
+  columns: (1fr, 1.3fr),
+  [Orion Request], [Inside the CAN Component],
+  [Target: `ox-injector-valve`], [Lookup: `ground-daq`, actuator binding],
+  [Operation: `set-state`], [`msg_type = ACTUATOR_CMD`],
+  [Parameter: `state = ON`], [`cmd_state = ACT_STATE_ON`],
+  [Target's private setup], [`DAQ / GROUND`, `ACTUATOR_OX_INJECTOR_VALVE`],
+)
 ]
 
 == Unary vs. Streaming
@@ -568,7 +520,7 @@ stream.Send(batch)
 
       ```go
       var receipt *pb.CommandReceipt
-      receipt, _ = commandClient.SubmitCommand(ctx, request)
+      receipt, _ = client.SubmitCommand(ctx, request)
       return receipt
       ```
 
@@ -579,8 +531,9 @@ stream.Send(batch)
 
       ```go
       var stream pb.Telemetry_PublishTelemetryClient
-      stream, _ = telemetryClient.PublishTelemetry(ctx)
+      stream, _ = client.PublishTelemetry(ctx)
       for {
+      	// batch = { ... }
         stream.Send(batch)
       }
       stream.CloseAndRecv()
@@ -615,6 +568,10 @@ stream.Send(batch)
 
       ```protobuf
       service Discovery {
+        rpc ListDevices(DeviceFilter)
+          returns (DeviceCatalog);
+        rpc ListCommands(CommandFilter)
+          returns (CommandCatalog);
         rpc ListChannels(ChannelFilter)
           returns (ChannelCatalog);
         rpc WatchComponentStatus(StatusFilter)
